@@ -15,6 +15,7 @@ endfunction()
 
 ################################################################################################
 # Function for generation Caffe build- and install- tree export config files
+# 用于生成Caffe构建和安装树导出配置文件的函数
 # Usage:
 #  caffe_generate_export_configs()
 function(caffe_generate_export_configs)
@@ -41,15 +42,22 @@ function(caffe_generate_export_configs)
   endif()
 
   # ---[ Configure build-tree CaffeConfig.cmake file ]---
-
   configure_file("cmake/Templates/CaffeConfig.cmake.in" "${PROJECT_BINARY_DIR}/CaffeConfig.cmake" @ONLY)
 
   # Add targets to the build-tree export set
+  # 导出外部项目的目标或包，以便直接从当前项目的构建树中使用它们，而无需安装。
+
+  # export(TARGETS <target>... [...])
+  # 创建一个可能由外部项目包含的文件 <filename> ，以从当前项目的构建树导入由 <target>... 命名的目标。
   export(TARGETS caffe caffeproto FILE "${PROJECT_BINARY_DIR}/CaffeTargets.cmake")
+
+  # 将当前构建目录存储在包 <PackageName> 的 CMake 用户包注册表中。 
+  # find_package() 命令在搜索包 <PackageName> 时可能会考虑该目录。
+  # 这有助于依赖项目从当前项目的构建树中找到并使用包，而无需用户的帮助。
+  # 请注意，此命令在包注册表中创建的条目只能与与构建树一起使用的包配置文件 ( <PackageName>Config.cmake ) 结合使用。
   export(PACKAGE Caffe)
 
   # ---[ Configure install-tree CaffeConfig.cmake file ]---
-
   configure_file("cmake/Templates/CaffeConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/CaffeConfig.cmake" @ONLY)
 
   # Install the CaffeConfig.cmake and export set to use with install-tree

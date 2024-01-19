@@ -2,15 +2,18 @@ if(CPU_ONLY)
   return()
 endif()
 
+# 设置GPU算力
 # Known NVIDIA GPU achitectures Caffe can be compiled for.
 # This list will be used for CUDA_ARCH_NAME = All option
-set(Caffe_known_gpu_archs "20 21(20) 30 35 50 60 61")
+set(Caffe_known_gpu_archs "20 21(20) 30 35 50 60 61 70 75 86 89")
 
 ################################################################################################
 # A function for automatic detection of GPUs installed  (if autodetection is enabled)
 # Usage:
 #   caffe_detect_installed_gpus(out_variable)
 function(caffe_detect_installed_gpus out_variable)
+  message(STATUS "CUDA_gpu_detect_output : ${CUDA_gpu_detect_output}")
+  unset(CUDA_gpu_detect_output CACHE)
   if(NOT CUDA_gpu_detect_output)
     set(__cufile ${PROJECT_BINARY_DIR}/detect_cuda_archs.cu)
 
@@ -30,12 +33,27 @@ function(caffe_detect_installed_gpus out_variable)
       "  return 0;\n"
       "}\n")
 
-    execute_process(COMMAND "${CUDA_NVCC_EXECUTABLE}" "--run" "${__cufile}"
-                    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}/CMakeFiles/"
-                    RESULT_VARIABLE __nvcc_res OUTPUT_VARIABLE __nvcc_out
+    # 运行给定序列的一个或多个命令。
+    execute_process(COMMAND "${CUDA_NVCC_EXECUTABLE}" "--run" "${__cufile}" # CMake 直接使用操作系统API执行子进程：
+                    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}/CMakeFiles/"   # 指定的目录将被设置成子进程的当前工作目录
+                    # 该变量将被设置成包含最后一个子进程的结果，
+                    # 这将是最后一个子级的整数返回代码或描述错误情况的字符串。
+                    RESULT_VARIABLE __nvcc_res    # return 返回值   
+
+                    # OUTPUT_VARIABLE ERROR_VARIABLE: 命名的变量将分别设置为标准输出和标准错误管道的内容。
+                    # 如果为两个管道命名相同的变量，则它们的输出将按生成的顺序合并
+                    OUTPUT_VARIABLE __nvcc_out    # printf 管道输出
+
+                    # OUTPUT_QUIET, ERROR_QUIET: OUTPUT_VARIABLE 上的标准输出或 
+                    # ERROR_VARIABLE 上的标准错误未连接（无可变内容）。
+                    # *_FILE 和 ECHO_*_VARIABLE 选件不受影响。
                     ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+    message(STATUS "detect_cuda_archs RESULT_VARIABLE : ${__nvcc_res}")
+    message(STATUS "detect_cuda_archs OUTPUT_VARIABLE : ${__nvcc_out}")
+
     if(__nvcc_res EQUAL 0)
+      # 在变量__nvcc_out中查找子串“2.1”，并将所有找到的“2.1”替换为“2.1(2.0)”。
       string(REPLACE "2.1" "2.1(2.0)" __nvcc_out "${__nvcc_out}")
       set(CUDA_gpu_detect_output ${__nvcc_out} CACHE INTERNAL "Returned GPU architetures from caffe_detect_gpus tool" FORCE)
     endif()
@@ -58,15 +76,19 @@ function(caffe_select_nvcc_arch_flags out_variable)
   # List of arch names
   set(__archs_names "Fermi" "Kepler" "Maxwell" "Pascal" "All" "Manual")
   set(__archs_name_default "All")
-  if(NOT CMAKE_CROSSCOMPILING)
+  if(NOT CMAKE_CROSSCOMPILING)  # 交叉编译
     list(APPEND __archs_names "Auto")
     set(__archs_name_default "Auto")
   endif()
 
+  # 将在CMake GUI上面显示 CUDA_ARCH_NAME, 并设置可选项
   # set CUDA_ARCH_NAME strings (so it will be seen as dropbox in CMake-Gui)
   set(CUDA_ARCH_NAME ${__archs_name_default} CACHE STRING "Select target NVIDIA GPU achitecture.")
+  # 为某个范围的零个或多个对象设置一个属性。
+  # 所需的 PROPERTY 选项后紧跟要设置的属性名称。其余参数用于以分号分隔列表的形式组成属性值。
   set_property( CACHE CUDA_ARCH_NAME PROPERTY STRINGS "" ${__archs_names} )
   mark_as_advanced(CUDA_ARCH_NAME)
+
 
   # verify CUDA_ARCH_NAME value
   if(NOT ";${__archs_names};" MATCHES ";${CUDA_ARCH_NAME};")
@@ -83,6 +105,7 @@ function(caffe_select_nvcc_arch_flags out_variable)
     unset(CUDA_ARCH_PTX CACHE)
   endif()
 
+  message(STATUS "CUDA_ARCH_NAME : ${CUDA_ARCH_NAME}")
   if(${CUDA_ARCH_NAME} STREQUAL "Fermi")
     set(__cuda_arch_bin "20 21(20)")
   elseif(${CUDA_ARCH_NAME} STREQUAL "Kepler")
@@ -94,16 +117,22 @@ function(caffe_select_nvcc_arch_flags out_variable)
   elseif(${CUDA_ARCH_NAME} STREQUAL "All")
     set(__cuda_arch_bin ${Caffe_known_gpu_archs})
   elseif(${CUDA_ARCH_NAME} STREQUAL "Auto")
-    caffe_detect_installed_gpus(__cuda_arch_bin)
+    set(__cuda_arch_bin "60")
+    # caffe_detect_installed_gpus(__cuda_arch_bin)
   else()  # (${CUDA_ARCH_NAME} STREQUAL "Manual")
     set(__cuda_arch_bin ${CUDA_ARCH_BIN})
   endif()
 
   # remove dots and convert to lists
+  # 使用正则表达式来替换变量__cuda_arch_bin中的所有点（.）字符
   string(REGEX REPLACE "\\." "" __cuda_arch_bin "${__cuda_arch_bin}")
   string(REGEX REPLACE "\\." "" __cuda_arch_ptx "${CUDA_ARCH_PTX}")
   string(REGEX MATCHALL "[0-9()]+" __cuda_arch_bin "${__cuda_arch_bin}")
   string(REGEX MATCHALL "[0-9]+"   __cuda_arch_ptx "${__cuda_arch_ptx}")
+
+  message(STATUS "__cuda_arch_bin : ${__cuda_arch_bin}")
+  message(STATUS "__cuda_arch_ptx : ${__cuda_arch_ptx}")
+
   caffe_list_unique(__cuda_arch_bin __cuda_arch_ptx)
 
   set(__nvcc_flags "")
@@ -134,6 +163,7 @@ function(caffe_select_nvcc_arch_flags out_variable)
     list(APPEND __nvcc_archs_readable compute_${__arch})
   endforeach()
 
+  # string(REPLACE ";" " " __nvcc_flags "${__nvcc_flags}")
   string(REPLACE ";" " " __nvcc_archs_readable "${__nvcc_archs_readable}")
   set(${out_variable}          ${__nvcc_flags}          PARENT_SCOPE)
   set(${out_variable}_readable ${__nvcc_archs_readable} PARENT_SCOPE)
@@ -189,7 +219,13 @@ function(detect_cuDNN)
     set(CUDNN_LIB_NAME "libcudnn.so")
   endif()
 
+  # 获取完整文件名的特定组成部分。
+  # get_filename_component(<var> <FileName> <mode> [CACHE])
   get_filename_component(__libpath_hist ${CUDA_CUDART_LIBRARY} PATH)
+  message(STATUS "__libpath_hist : ${__libpath_hist}")
+  message(STATUS "CUDA_CUDART_LIBRARY : ${CUDA_CUDART_LIBRARY}")
+
+
   find_library(CUDNN_LIBRARY NAMES ${CUDNN_LIB_NAME}
    PATHS ${CUDNN_ROOT} $ENV{CUDNN_ROOT} ${CUDNN_INCLUDE} ${__libpath_hist} ${__libpath_hist}/../lib
    DOC "Path to cuDNN library.")
@@ -198,9 +234,8 @@ function(detect_cuDNN)
     set(HAVE_CUDNN  TRUE PARENT_SCOPE)
     set(CUDNN_FOUND TRUE PARENT_SCOPE)
 
-    # file(READ ${CUDNN_INCLUDE}/cudnn.h CUDNN_VERSION_FILE_CONTENTS)
-
-    file(READ ${CUDNN_INCLUDE}/cudnn_version.h CUDNN_VERSION_FILE_CONTENTS)
+    file(READ ${CUDNN_INCLUDE}/cudnn.h CUDNN_VERSION_FILE_CONTENTS)
+    # file(READ ${CUDNN_INCLUDE}/cudnn_version.h CUDNN_VERSION_FILE_CONTENTS)
 
     # cuDNN v3 and beyond
     string(REGEX MATCH "define CUDNN_MAJOR * +([0-9]+)"
@@ -217,6 +252,7 @@ function(detect_cuDNN)
            CUDNN_VERSION_PATCH "${CUDNN_VERSION_PATCH}")
 
     if(NOT CUDNN_VERSION_MAJOR)
+      message(STATUS "Not find CUDNN_VERSION, maybe CUDNN_VERSION is not in ${CUDNN_INCLUDE}/cudnn.h")
       set(CUDNN_VERSION "???")
     else()
       set(CUDNN_VERSION "${CUDNN_VERSION_MAJOR}.${CUDNN_VERSION_MINOR}.${CUDNN_VERSION_PATCH}")
@@ -224,7 +260,10 @@ function(detect_cuDNN)
 
     message(STATUS "Found cuDNN: ver. ${CUDNN_VERSION} found (include: ${CUDNN_INCLUDE}, library: ${CUDNN_LIBRARY})")
 
+    # string(COMPARE <op> <string1> <string2> <out-var>)
+    # 比较字符串并将 true 或 false 存储在 <output_variable> 中。
     string(COMPARE LESS "${CUDNN_VERSION_MAJOR}" 3 cuDNNVersionIncompatible)
+
     if(cuDNNVersionIncompatible)
       message(FATAL_ERROR "cuDNN version >3 is required.")
     endif()
@@ -243,6 +282,7 @@ find_package(CUDA 5.5 QUIET)
 find_cuda_helper_libs(curand)  # cmake 2.8.7 compatibility which doesn't search for curand
 
 if(NOT CUDA_FOUND)
+  message(STATUS "CUDA not found!")
   return()
 endif()
 
@@ -265,7 +305,8 @@ endif()
 # setting nvcc arch flags
 caffe_select_nvcc_arch_flags(NVCC_FLAGS_EXTRA)
 list(APPEND CUDA_NVCC_FLAGS ${NVCC_FLAGS_EXTRA})
-message(STATUS "Added CUDA NVCC flags for: ${NVCC_FLAGS_EXTRA_readable}")
+message(STATUS "flags Added CUDA NVCC flags for: ${NVCC_FLAGS_EXTRA}")
+message(STATUS "readable Added CUDA NVCC flags for: ${NVCC_FLAGS_EXTRA_readable}")
 
 # Boost 1.55 workaround, see https://svn.boost.org/trac/boost/ticket/9392 or
 # https://github.com/ComputationalRadiationPhysics/picongpu/blob/master/src/picongpu/CMakeLists.txt
@@ -276,7 +317,10 @@ if(Boost_VERSION EQUAL 105500)
 endif()
 
 # disable some nvcc diagnostic that apears in boost, glog, glags, opencv, etc.
+# 使用 foreach 循环来处理一系列的诊断抑制选项，并将它们添加到 CUDA_NVCC_FLAGS 变量中
 foreach(diag cc_clobber_ignored integer_sign_change useless_using_declaration set_but_not_used)
+  # 将一个诊断抑制选项添加到CUDA_NVCC_FLAGS变量中。
+  # 这个选项是通过-Xcudafe指定的，后面跟着--diag_suppress=${diag}，其中${diag}是在循环变量diag中当前的值
   list(APPEND CUDA_NVCC_FLAGS -Xcudafe --diag_suppress=${diag})
 endforeach()
 

@@ -13,6 +13,7 @@ endfunction()
 macro(caffe_list_unique)
   foreach(__lst ${ARGN})
     if(${__lst})
+      # list(REMOVE_DUPLICATES ...) 函数用于移除列表中的重复元素
       list(REMOVE_DUPLICATES ${__lst})
     endif()
   endforeach()
@@ -87,10 +88,20 @@ endfunction()
 # Reads set of version defines from the header file
 # Usage:
 #   caffe_parse_header(<file> <define1> <define2> <define3> ..)
+# Example:
+#   input:
+#       caffe_parse_header(${Snappy_INCLUDE_DIR}/snappy-stubs-public.h
+#           SNAPPY_VERION_LINES SNAPPY_MAJOR SNAPPY_MINOR SNAPPY_PATCHLEVEL)
+#   output:
+#       SNAPPY_VERION_LINES : #define SNAPPY_MAJOR 1;#define SNAPPY_MINOR 1;#define SNAPPY_PATCHLEVEL 3
+#       SNAPPY_MAJOR : 1
+#       SNAPPY_MINOR : 1
+#       SNAPPY_PATCHLEVEL : 3
 macro(caffe_parse_header FILENAME FILE_VAR)
   set(vars_regex "")
   set(__parnet_scope OFF)
   set(__add_cache OFF)
+
   foreach(name ${ARGN})
     if("${name}" STREQUAL "PARENT_SCOPE")
       set(__parnet_scope ON)
@@ -102,22 +113,53 @@ macro(caffe_parse_header FILENAME FILE_VAR)
       set(vars_regex "${name}")
     endif()
   endforeach()
+
+  message(STATUS "vars_regex : ${vars_regex}")
+
+
   if(EXISTS "${FILENAME}")
+    # 使用file命令和STRINGS选项来提取符合特定正则表达式的字符序列
+    # [ \t]+ 匹配一个或多个空白字符
+    # [0-9]+ 匹配一个或多个数字，代表宏定义的值
     file(STRINGS "${FILENAME}" ${FILE_VAR} REGEX "#define[ \t]+(${vars_regex})[ \t]+[0-9]+" )
   else()
     unset(${FILE_VAR})
   endif()
+
+  # FILE_VAR : #define SNAPPY_MAJOR 1;#define SNAPPY_MINOR 1;#define SNAPPY_PATCHLEVEL 3
+  message(STATUS "FILE_VAR : ${${FILE_VAR}}")
+
   foreach(name ${ARGN})
     if(NOT "${name}" STREQUAL "PARENT_SCOPE" AND NOT "${name}" STREQUAL "CACHE")
       if(${FILE_VAR})
+
+        # .+ 匹配任何非换行符的字符串（一个或多个字符）
+        # .* 匹配任何非换行符的字符串（一个或多个字符）
+        # ([0-9]+) 使用括号表示一个捕获组，匹配一个或多个数字。这个组会被存储供后续使用
         if(${FILE_VAR} MATCHES ".+[ \t]${name}[ \t]+([0-9]+).*")
+          # string(REGEX REPLACE <match-regex> <replace-expr> <out-var> <input>...)
+          # 使用了REGEX REPLACE函数来替换字符串中与给定正则表达式匹配的部分。
+          #           这个正则表达式的目的是找到宏定义后的数字部分。
+          # "\\1"：这是正则表达式中捕获组([0-9]+)的引号包围的表示，它表示替换匹配到的数字。
+          #           在CMake中，\\1表示第一个捕获组的内容，\\2表示第二个捕获组的内容
+          # ${name}：这是存储替换结果的目标变量。
           string(REGEX REPLACE ".+[ \t]${name}[ \t]+([0-9]+).*" "\\1" ${name} "${${FILE_VAR}}")
         else()
           set(${name} "")
         endif()
+
         if(__add_cache)
+          # cache缓存条目 : 全局变量
+          # FORCE: 默认情况下不会覆盖现有的缓存条目,使用 FORCE 选项覆盖现有条目。
           set(${name} ${${name}} CACHE INTERNAL "${name} parsed from ${FILENAME}" FORCE)
         elseif(__parnet_scope)
+
+          # 如果给出了 PARENT_SCOPE 选项，则变量将设置在当前范围之上的范围中。
+          # 每个新目录或 function() 命令都会创建一个新作用域。
+          # 还可以使用 block() 命令创建作用域。此命令将变量的值设置到父目录中，
+          # 调用函数或包含范围（以适用于当前情况的为准）。
+          # 变量值的先前状态在当前作用域中保持不变
+          # （例如，如果它之前未定义，则它仍然是未定义，如果它有一个值，它仍然是该值）。
           set(${name} "${${name}}" PARENT_SCOPE)
         endif()
       else()
@@ -228,12 +270,20 @@ endfunction()
 
 ################################################################################################
 # Command for disabling warnings for different platforms (see below for gcc and VisualStudio)
+# 将 warning 放入 CMAKE_C_FLAGS 或者 CMAKE_CXX_FLAGS
 # Usage:
 #   caffe_warnings_disable(<CMAKE_[C|CXX]_FLAGS[_CONFIGURATION]> -Wshadow /wd4996 ..,)
+# Example:
+#   caffe_warnings_disable(CMAKE_CXX_FLAGS -Wno-sign-compare -Wno-uninitialized)
+#       before CMAKE_CXX_FLAGS :  -fPIC -Wall
+#       after  CMAKE_CXX_FLAGS :  -fPIC -Wall -Wno-sign-compare -Wno-uninitialized
 macro(caffe_warnings_disable)
   set(_flag_vars "")
   set(_msvc_warnings "")
   set(_gxx_warnings "")
+
+  message(STATUS "caffe_warning_disable ARGN : ${ARGN}")
+  message(STATUS "caffe_warning_disable before CMAKE_CXX_FLAGS : ${CMAKE_CXX_FLAGS}")
 
   foreach(arg ${ARGN})
     if(arg MATCHES "^CMAKE_")
@@ -244,6 +294,10 @@ macro(caffe_warnings_disable)
       list(APPEND _gxx_warnings ${arg})
     endif()
   endforeach()
+
+  message(STATUS "caffe_warning_disable _flag_vars : ${_flag_vars}")
+  message(STATUS "caffe_warning_disable _msvc_warnings : ${_msvc_warnings}")
+  message(STATUS "caffe_warning_disable _gxx_warnings : ${_gxx_warnings}")
 
   if(NOT _flag_vars)
     set(_flag_vars CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
@@ -264,9 +318,14 @@ macro(caffe_warnings_disable)
         endif()
         set(${var} "${${var}} ${warning}")
       endforeach()
+      message(STATUS "caffe_warning_disable var : ${var} and ${${var}}")
     endforeach()
   endif()
+
+  # 清除list
   caffe_clear_vars(_flag_vars _msvc_warnings _gxx_warnings)
+
+  message(STATUS "caffe_warning_disable after CMAKE_CXX_FLAGS : ${CMAKE_CXX_FLAGS}")
 endmacro()
 
 ################################################################################################

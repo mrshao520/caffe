@@ -21,10 +21,14 @@ if(PYTHONINTERP_FOUND)
     RESULT_VARIABLE __result
     OUTPUT_VARIABLE __output
     OUTPUT_STRIP_TRAILING_WHITESPACE)
+  
+  message(STATUS "numpy __result : ${__result}")
+  
 
   if(__result MATCHES 0)
     string(REGEX REPLACE ";" "\\\\;" __values ${__output})
     string(REGEX REPLACE "\r?\n" ";"    __values ${__values})
+    message(STATUS "numpy __output : ${__values}")
     list(GET __values 0 NUMPY_VERSION)
     list(GET __values 1 NUMPY_INCLUDE_DIR)
 
@@ -33,9 +37,13 @@ if(PYTHONINTERP_FOUND)
       set(NUMPY_VERSION_MAJOR ${CMAKE_MATCH_1})
       set(NUMPY_VERSION_MINOR ${CMAKE_MATCH_2})
       set(NUMPY_VERSION_PATCH ${CMAKE_MATCH_3})
+
+      # math(EXPR <variable> "<expression>" [OUTPUT_FORMAT <format>])
       math(EXPR NUMPY_VERSION_DECIMAL
         "(${NUMPY_VERSION_MAJOR} * 10000) + (${NUMPY_VERSION_MINOR} * 100) + ${NUMPY_VERSION_PATCH}")
+        
       string(REGEX REPLACE "\\\\" "/"  NUMPY_INCLUDE_DIR ${NUMPY_INCLUDE_DIR})
+      
     else()
      unset(NUMPY_VERSION)
      unset(NUMPY_INCLUDE_DIR)

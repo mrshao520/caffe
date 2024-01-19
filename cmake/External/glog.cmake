@@ -1,9 +1,12 @@
 # glog depends on gflags
 include("cmake/External/gflags.cmake")
 
+if (NOT ${__GLOG_INCLUDED})
+  message(STATUS "__GFLAGS_INCLUDED : ${__GFLAGS_INCLUDED}")
+endif()
+
 if (NOT __GLOG_INCLUDED)
   set(__GLOG_INCLUDED TRUE)
-
   # try the system-wide glog first
   find_package(Glog)
   if (GLOG_FOUND)
@@ -30,6 +33,8 @@ if (NOT __GLOG_INCLUDED)
       set(GLOG_DEPENDS gflags)
     endif()
 
+    message(STATUS "GLOG_DEPENDS : ${GLOG_DEPENDS}")
+
     ExternalProject_Add(glog
       DEPENDS ${GLOG_DEPENDS}
       PREFIX ${glog_PREFIX}
@@ -39,9 +44,9 @@ if (NOT __GLOG_INCLUDED)
       INSTALL_DIR ${gflags_INSTALL}
       PATCH_COMMAND autoreconf -i ${glog_PREFIX}/src/glog
       CONFIGURE_COMMAND env "CFLAGS=${GLOG_C_FLAGS}" "CXXFLAGS=${GLOG_CXX_FLAGS}" ${glog_PREFIX}/src/glog/configure --prefix=${glog_INSTALL} --enable-shared=no --enable-static=yes --with-gflags=${GFLAGS_LIBRARY_DIRS}/..
-      LOG_DOWNLOAD 1
-      LOG_CONFIGURE 1
-      LOG_INSTALL 1
+      LOG_DOWNLOAD 1 # 启用后，下载步骤的输出将记录到文件中。
+      LOG_CONFIGURE 1 # 启用后，将把 configure 步骤的输出记录到文件中。
+      LOG_INSTALL 1 # 启用后，安装步骤的输出将记录到文件中。
       )
 
     set(GLOG_FOUND TRUE)

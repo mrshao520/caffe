@@ -8,6 +8,7 @@ set(Caffe_COMPILE_OPTIONS "")
 find_package(Boost 1.54 REQUIRED COMPONENTS system thread filesystem)
 list(APPEND Caffe_INCLUDE_DIRS PUBLIC ${Boost_INCLUDE_DIRS})
 list(APPEND Caffe_LINKER_LIBS PUBLIC ${Boost_LIBRARIES})
+message(STATUS "Boost_VERSION : ${Boost_VERSION}")
 
 # ---[ Threads
 find_package(Threads REQUIRED)
@@ -114,8 +115,12 @@ endif()
 
 # ---[ BLAS
 if(NOT APPLE)
-  set(BLAS "Atlas" CACHE STRING "Selected BLAS library")
+  set(BLAS "Atlas" CACHE STRING "Selected BLAS library" FORCE)
+  # 让用户在CMake配置过程中选择一个BLAS库的实现，并且将这个选择缓存起来，
+  # 以便在后续的构建过程中不需要再次选择，提高构建过程的效率。
   set_property(CACHE BLAS PROPERTY STRINGS "Atlas;Open;MKL")
+
+  message(STATUS "BLAS : ${BLAS}")
 
   if(BLAS STREQUAL "Atlas" OR BLAS STREQUAL "atlas")
     find_package(Atlas REQUIRED)
@@ -180,6 +185,7 @@ if(BUILD_python)
     find_package(NumPy 1.7.1)
     find_package(Boost 1.46 COMPONENTS python)
   endif()
+
   if(PYTHONLIBS_FOUND AND NUMPY_FOUND AND Boost_PYTHON_FOUND)
     set(HAVE_PYTHON TRUE)
     if(BUILD_python_layer)
@@ -188,6 +194,7 @@ if(BUILD_python)
       list(APPEND Caffe_LINKER_LIBS PRIVATE ${PYTHON_LIBRARIES} PUBLIC ${Boost_LIBRARIES})
     endif()
   endif()
+  
 endif()
 
 # ---[ Matlab
