@@ -59,6 +59,7 @@ class LayerRegistry {
   typedef std::map<string, Creator> CreatorRegistry;
 
   static CreatorRegistry& Registry() {
+    /* 静态单例模式 */
     static CreatorRegistry* g_registry_ = new CreatorRegistry();
     return *g_registry_;
   }
