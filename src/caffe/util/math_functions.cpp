@@ -82,6 +82,12 @@ void caffe_add_scalar(const int N, const double alpha, double* Y) {
   }
 }
 
+/**
+ * @brief 内存拷贝
+ * @param N 长度
+ * @param X src
+ * @param Y dst
+*/
 template <typename Dtype>
 void caffe_copy(const int N, const Dtype* X, Dtype* Y) {
   if (X != Y) {

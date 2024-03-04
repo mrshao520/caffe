@@ -74,8 +74,15 @@ void caffe_gpu_axpy<double>(const int N, const double alpha, const double* X,
   CUBLAS_CHECK(cublasDaxpy(Caffe::cublas_handle(), N, &alpha, X, 1, Y, 1));
 }
 
+/**
+ * @brief 用于在主机(CPU)和设备(GPU)之间复制内存
+ * @param N 要复制字节数
+ * @param X src
+ * @param Y dst
+*/
 void caffe_gpu_memcpy(const size_t N, const void* X, void* Y) {
   if (X != Y) {
+    /* cudaMemcpyDefault: 传输的方向是根据指针值推断出来的。需要统一的虚拟寻址。 */
     CUDA_CHECK(cudaMemcpy(Y, X, N, cudaMemcpyDefault));  // NOLINT(caffe/alt_fn)
   }
 }

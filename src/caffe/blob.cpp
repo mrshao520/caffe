@@ -35,7 +35,7 @@ namespace caffe
     {
       shape_data_.reset(new SyncedMemory(shape.size() * sizeof(int)));
     }
-    /* 获取shape_data_的cpu_data指针，用于写入新的shape信息 */
+    /* 获取shape_data_可读写的cpu_data指针，用于写入新的shape信息 */
     int *shape_data = static_cast<int *>(shape_data_->mutable_cpu_data());
     /* 遍历shape的每个维度 */
     for (int i = 0; i < shape.size(); ++i)
@@ -60,7 +60,7 @@ namespace caffe
     {
       /* 更新capacity_ */
       capacity_ = count_;
-      /* 创建新的SyncedMemory对象用于存储data和diff（梯度） */
+      /* 创建新的SyncedMemory对象用于存储data和diff（梯度），会释放以前的对象 */
       data_.reset(new SyncedMemory(capacity_ * sizeof(Dtype)));
       diff_.reset(new SyncedMemory(capacity_ * sizeof(Dtype)));
     }

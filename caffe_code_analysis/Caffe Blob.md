@@ -2,7 +2,7 @@
 
 ## 1.   概述
 
-* **Blob**：是基础的数据结构，用来保存学习到的参数以及网络传输过程中产生的数据。
+* **Blob**：是基础的数据结构，用来保存学习到的参数以及网络传输过程中产生的数据，神经网络的权重、偏置、激活值等
 * **Layer**：是网络的基本单元，由此派生出了各种层。
 * **Net**：是网络的搭建，将 Layer 所派生出层类组合成网络。
 * **Solver**：是 Net 的求解。
@@ -13,8 +13,8 @@
 
 ### 2.1     源码文件
 
-* include/blob.hpp
-* src/blob.cpp
+* include/caffe/blob.hpp
+* src/caffe/blob.cpp
 
 
 
@@ -39,15 +39,16 @@ public:
   ......
     
 protected:
-  shared_ptr<SyncedMemory> data_;
-  shared_ptr<SyncedMemory> diff_;
-  shared_ptr<SyncedMemory> shape_data_;
-  vector<int> shape_;
-  int count_;
-  int capacity_;
+    shared_ptr<SyncedMemory> data_;       /* 主要用来正向传播的时候用 */
+    shared_ptr<SyncedMemory> diff_;       /* 存储偏差 */
+    shared_ptr<SyncedMemory> shape_data_; /* 存储Blob的形状 */
+    vector<int> shape_;                   /* 存储Blob的形状 */
+    int count_;                           /* Blob中的元素个数，batch_size * channels * hight * width */
+    int capacity_;                        /* 当前元素的个数,或者data_.size()  capacity_会默认初始化为0，且在其他操作之前*/
 
-  DISABLE_COPY_AND_ASSIGN(Blob);
-  /* private: Blob(const Blob&); Blob& operator=(const Blob&) */
+    /* 禁止拷贝和赋值构造 */
+    DISABLE_COPY_AND_ASSIGN(Blob);
+    /* private: Blob(const Blob&); Blob& operator=(const Blob&) */
 };  // class Blob
 ```
 
@@ -56,12 +57,12 @@ protected:
 ### 2.3     成员变量
 
 ```c++
-shared_ptr<SyncedMemory> data_;
-shared_ptr<SyncedMemory> diff_;
-shared_ptr<SyncedMemory> shape_data_;
-vector<int> shape_;
-int count_;
-int capacity_;
+shared_ptr<SyncedMemory> data_;       /* 主要用来正向传播的时候用 */
+shared_ptr<SyncedMemory> diff_;       /* 存储偏差 */
+shared_ptr<SyncedMemory> shape_data_; /* 存储Blob的形状 */
+vector<int> shape_;                   /* 存储Blob的形状 */
+int count_;                           /* Blob中的元素个数，batch_size * channels * hight * width */
+int capacity_;                        /* 当前元素的个数,或者data_.size()  capacity_会默认初始化为0，且在其他操作之前*/
 ```
 
 * Blob只是个基本的数据结构，因此内部的变量相对较少
@@ -292,18 +293,12 @@ Dtype asum_diff() const;
 Dtype sumsq_data() const;
 /// @brief Compute the sum of squares (L2 norm squared) of the diff.
 Dtype sumsq_diff() const;
-
-/// @brief Scale the blob data by a constant factor.
-void scale_data(Dtype scale_factor);
-/// @brief Scale the blob diff by a constant factor.
-void scale_diff(Dtype scale_factor);
 ```
 
 * **asum**：表示L1范数，**sumsq**：表示求L2范数，**scala**：表示乘法，乘以一个因子
   * **L0范数**：向量中非0的元素个数
   * **L1范数**：向量中各个元素的绝对值之和
   * **L2范数**：向量中各个元素的平方和然后求平方根，**L2范数可以防止过拟合，提升模型的泛化能力**
-
 * 扩展
 
   * 对于p-范数，如果 $x = [x_{1}, x_{2}, \dots, x_{n}]^T$，
@@ -313,7 +308,27 @@ void scale_diff(Dtype scale_factor);
     * L2范数 $||X||_{2} = (|x_{1}|^{2} + |x_{2}|^{2} + \dots + |x_{n}|^{2})^{\frac{1}{2}}$
     * 特别的，L0范数：指向量中非零元素的个数。无穷范数：指向量中所有元素的最大绝对值
     
-    
+
+
+
+```c++
+/**
+* @brief 将Blob中的data和diff乘以一个常数因子scale_factor
+*        这在神经网络训练过程中非常有用，例如在更新权重时按学习率缩放梯度，
+*        或者在实现某些算法时对数据进行标准化。
+* @param scale_factor 常数因子
+*/
+/// @brief Scale the blob data by a constant factor.
+void scale_data(Dtype scale_factor);
+/// @brief Scale the blob diff by a constant factor.
+void scale_diff(Dtype scale_factor);
+```
+
+* **scale_data or diff**：将Blob中的data和diff乘以一个常数因子scale_factor。这在神经网络训练过程中非常有用，例如在更新权重时按学习率缩放梯度，或者在实现某些算法时对数据进行标准化。
+
+
+
+
 
 ```c++
 /**

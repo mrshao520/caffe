@@ -18,6 +18,7 @@ namespace caffe
    * @brief A wrapper around SyncedMemory holders serving as the basic
    *        computational unit through which Layer%s, Net%s, and Solver%s
    *        interact.
+   *        Blob 是 Caffe 中的基础数据结构，用于存储神经网络的权重、偏置、激活值等
    *
    * TODO(dox): more thorough description.
    */
@@ -188,7 +189,7 @@ namespace caffe
 
     /**
      * @brief 根据基本变量num, channels, height, width 计算偏移量
-    */
+     */
     inline int offset(const int n, const int c = 0, const int h = 0,
                       const int w = 0) const
     {
@@ -267,7 +268,7 @@ namespace caffe
 
     /**
      * @brief 设置和获取data
-    */
+     */
     const Dtype *cpu_data() const;
     void set_cpu_data(Dtype *data);
     const int *gpu_shape() const;
@@ -283,21 +284,29 @@ namespace caffe
     /**
      * @brief 更新blob对象中的数据
      *        Y = alpha * X + beta * Y blob里面的data部分减去diff部分
-    */
+     */
     void Update();
 
     void FromProto(const BlobProto &proto, bool reshape = true);
     void ToProto(BlobProto *proto, bool write_diff = false) const;
 
     /// @brief Compute the sum of absolute values (L1 norm) of the data.
+    ///        计算L1范数：向量中各个元素的绝对值之和
     Dtype asum_data() const;
     /// @brief Compute the sum of absolute values (L1 norm) of the diff.
     Dtype asum_diff() const;
     /// @brief Compute the sum of squares (L2 norm squared) of the data.
+    ///        计算L2范数：向量中各个元素的平方和然后求平方根，L2范数可以防止过拟合，提升模型的泛化能力
     Dtype sumsq_data() const;
     /// @brief Compute the sum of squares (L2 norm squared) of the diff.
     Dtype sumsq_diff() const;
 
+    /**
+     * @brief 将Blob中的data和diff乘以一个常数因子scale_factor
+     *        这在神经网络训练过程中非常有用，例如在更新权重时按学习率缩放梯度，
+     *        或者在实现某些算法时对数据进行标准化。
+     * @param scale_factor 常数因子
+     */
     /// @brief Scale the blob data by a constant factor.
     void scale_data(Dtype scale_factor);
     /// @brief Scale the blob diff by a constant factor.
@@ -328,7 +337,7 @@ namespace caffe
 
     /**
      * @brief 比较两个Blob形状是否相同
-    */
+     */
     bool ShapeEquals(const BlobProto &other);
 
   protected:
