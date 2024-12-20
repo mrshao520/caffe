@@ -58,16 +58,21 @@ DEFINE_string(sighup_effect, "snapshot",
 // A simple registry for caffe commands.
 typedef int (*BrewFunction)();
 typedef std::map<caffe::string, BrewFunction> BrewMap;
+// 全局brew函数映射表
 BrewMap g_brew_map;
 
+// 定义一个宏RegisterBrewFunction，用于注册一个函数到全局的brew函数映射表中
 #define RegisterBrewFunction(func) \
 namespace { \
 class __Registerer_##func { \
  public: /* NOLINT */ \
   __Registerer_##func() { \
+    /* 在构造函数中，将函数名（转换成字符串）映射到函数指针 */ \
     g_brew_map[#func] = &func; \
   } \
 }; \
+/* 创建一个__Registerer_##func类型的全局实例 */ \
+/* 当程序启动时，这个实例的构造函数会被调用，从而完成函数的注册 */ \
 __Registerer_##func g_registerer_##func; \
 }
 
@@ -90,6 +95,7 @@ static void get_gpus(vector<int>* gpus) {
   if (FLAGS_gpu == "all") {
     int count = 0;
 #ifndef CPU_ONLY
+    // 获取当前系统的CUDA设备数量
     CUDA_CHECK(cudaGetDeviceCount(&count));
 #else
     NO_GPU;
@@ -99,6 +105,7 @@ static void get_gpus(vector<int>* gpus) {
     }
   } else if (FLAGS_gpu.size()) {
     vector<string> strings;
+    // 将字符串分割成多个子字符串
     boost::split(strings, FLAGS_gpu, boost::is_any_of(","));
     for (int i = 0; i < strings.size(); ++i) {
       gpus->push_back(boost::lexical_cast<int>(strings[i]));
@@ -137,9 +144,12 @@ vector<string> get_stages_from_flags() {
 int device_query() {
   LOG(INFO) << "Querying GPUs " << FLAGS_gpu;
   vector<int> gpus;
+  // 获取所有的CUDA设备编号
   get_gpus(&gpus);
   for (int i = 0; i < gpus.size(); ++i) {
+    // 设置 device
     caffe::Caffe::SetDevice(gpus[i]);
+    // 查询 device 信息并打印
     caffe::Caffe::DeviceQuery();
   }
   return 0;
@@ -165,6 +175,7 @@ caffe::SolverAction::Enum GetRequestedAction(
 // Train / Finetune a model.
 int train() {
   CHECK_GT(FLAGS_solver.size(), 0) << "Need a solver definition to train.";
+  /// 继续训练或者微调
   CHECK(!FLAGS_snapshot.size() || !FLAGS_weights.size())
       << "Give a snapshot to resume training or weights to finetune "
       "but not both.";
@@ -226,6 +237,7 @@ int train() {
     solver_param.add_weights(FLAGS_weights);
   }
 
+  /// 创建 solver
   shared_ptr<caffe::Solver<float> >
       solver(caffe::SolverRegistry<float>::CreateSolver(solver_param));
 
@@ -417,12 +429,16 @@ int time() {
 }
 RegisterBrewFunction(time);
 
+// 主函数
 int main(int argc, char** argv) {
   // Print output to stderr (while still logging).
+  // 将日志信息打印到标准错误输出（stderr），同时仍然记录日志
   FLAGS_alsologtostderr = 1;
   // Set version
+  // 设置版本号，使用CAFFE_VERSION宏定义的字符串
   gflags::SetVersionString(AS_STRING(CAFFE_VERSION));
   // Usage message.
+  // 设置使用信息，显示如何使用caffe命令行工具
   gflags::SetUsageMessage("command line brew\n"
       "usage: caffe <command> <args>\n\n"
       "commands:\n"
@@ -430,20 +446,25 @@ int main(int argc, char** argv) {
       "  test            score a model\n"
       "  device_query    show GPU diagnostic information\n"
       "  time            benchmark model execution time");
-  // Run tool or show usage.
+  // Run tool or show usage
+  // 初始化全局变量，解析命令行参数.
   caffe::GlobalInit(&argc, &argv);
+  // 如果命令行参数的数量正好是2（包含程序名称和命令）
   if (argc == 2) {
 #ifdef WITH_PYTHON_LAYER
     try {
 #endif
+      // GetBrewFunction(caffe::string(argv[1]))获取对应的函数，然后执行
       return GetBrewFunction(caffe::string(argv[1]))();
 #ifdef WITH_PYTHON_LAYER
     } catch (bp::error_already_set) {
+      // 如果捕获到Python错误，打印错误信息并返回错误代码1
       PyErr_Print();
       return 1;
     }
 #endif
   } else {
+    // 如果命令行参数不正确，显示使用信息
     gflags::ShowUsageWithFlagsRestrict(argv[0], "tools/caffe");
   }
 }

@@ -106,6 +106,7 @@ function(caffe_select_nvcc_arch_flags out_variable)
   endif()
 
   message(STATUS "CUDA_ARCH_NAME : ${CUDA_ARCH_NAME}")
+  message(STATUS "----------------------------------")
   if(${CUDA_ARCH_NAME} STREQUAL "Fermi")
     set(__cuda_arch_bin "20 21(20)")
   elseif(${CUDA_ARCH_NAME} STREQUAL "Kepler")

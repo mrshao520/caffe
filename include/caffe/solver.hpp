@@ -17,13 +17,16 @@ namespace caffe {
   * or saving a snapshot without exiting. In the executable caffe, this
   * mechanism is used to allow the snapshot to be saved when stopping
   * execution with a SIGINT (Ctrl-C).
+  * 定义了客户端（如训练Caffe模型的用户）可能通过实现Solver的动作请求函数请求的动作类型。
+  * 这个动作请求函数是可选的，用于请求提前终止训练或在不退出的情况下保存快照。
+  * 在可执行的Caffe程序中，这个机制被用来在收到SIGINT信号（通常是Ctrl-C）时保存快照。
   */
   namespace SolverAction {
     enum Enum {
-      NONE = 0,  // Take no special action.
+      NONE = 0,  // Take no special action. 采取任何特殊行动。
       STOP = 1,  // Stop training. snapshot_after_train controls whether a
-                 // snapshot is created.
-      SNAPSHOT = 2  // Take a snapshot, and keep training.
+                 // snapshot is created.停止训练。snapshot_after_train控制是否创建快照。
+      SNAPSHOT = 2  // Take a snapshot, and keep training.保存快照，并继续训练。
     };
   }
 
@@ -53,7 +56,8 @@ class Solver {
   void SetActionFunction(ActionCallback func);
   SolverAction::Enum GetRequestedAction();
   // The main entry of the solver function. In default, iter will be zero. Pass
-  // in a non-zero iter number to resume training for a pre-trained net.
+  // in a non-zero iter number to resume training for a pre-trained net.、
+  // Solve 函数的主要入口。默认情况下，iter为零。传递一个非零的iter数字以恢复对预训练网络的训练。
   virtual void Solve(const char* resume_file = NULL);
   inline void Solve(const string& resume_file) { Solve(resume_file.c_str()); }
   void Step(int iters);

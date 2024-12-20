@@ -103,9 +103,12 @@ class Caffe {
  public:
   ~Caffe();
 
-  // Thread local context for Caffe. Moved to common.cpp instead of
-  // including boost/thread.hpp to avoid a boost/NVCC issues (#1009, #1010)
-  // on OSX. Also fails on Linux with CUDA 7.0.18.
+  /**
+   * @brief 获取当前线程特定的 Caffe 实例
+   * Thread local context for Caffe. Moved to common.cpp instead of including 
+   * boost/thread.hpp to avoid a boost/NVCC issues (#1009, #1010) on OSX. 
+   * Also fails on Linux with CUDA 7.0.18.
+   */
   static Caffe& Get();
 
   enum Brew { CPU, GPU };

@@ -341,8 +341,8 @@ namespace caffe
     bool ShapeEquals(const BlobProto &other);
 
   protected:
-    shared_ptr<SyncedMemory> data_;       /* 主要用来正向传播的时候用 */
-    shared_ptr<SyncedMemory> diff_;       /* 存储偏差 */
+    shared_ptr<SyncedMemory> data_;       /* 存储前向传播的数据 */
+    shared_ptr<SyncedMemory> diff_;       /* 存储反向传播的梯度 */
     shared_ptr<SyncedMemory> shape_data_; /* 存储Blob的形状 */
     vector<int> shape_;                   /* 存储Blob的形状 */
     int count_;                           /* Blob中的元素个数，batch_size * channels * hight * width */

@@ -4,7 +4,7 @@
 DIR="$( cd "$(dirname "$0")" ; pwd -P )"
 cd "$DIR"
 
-echo "Downloading..."
+echo "Downloading... ${DIR}"
 
 for fname in train-images-idx3-ubyte train-labels-idx1-ubyte t10k-images-idx3-ubyte t10k-labels-idx1-ubyte
 do
@@ -13,3 +13,8 @@ do
         gunzip ${fname}.gz
     fi
 done
+
+# for fname in train-images-idx3-ubyte train-labels-idx1-ubyte t10k-images-idx3-ubyte t10k-labels-idx1-ubyte
+# do 
+#     gunzip ${fname}.gz
+# done

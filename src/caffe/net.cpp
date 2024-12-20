@@ -29,38 +29,49 @@ Net<Dtype>::Net(const NetParameter& param) {
 template <typename Dtype>
 Net<Dtype>::Net(const string& param_file, Phase phase,
     const int level, const vector<string>* stages) {
+  // 创建一个 NetParameter 对象用于存储网络参数
   NetParameter param;
+  // 从文本文件中读取网络参数，如果读取失败则程序终止。
   ReadNetParamsFromTextFileOrDie(param_file, &param);
   // Set phase, stages and level
+  // 设置网络运行的阶段（训练或测试）
   param.mutable_state()->set_phase(phase);
   if (stages != NULL) {
     for (int i = 0; i < stages->size(); i++) {
+      // 将每个阶段添加到网络参数中
       param.mutable_state()->add_stage((*stages)[i]);
     }
   }
+  // 设置网络参数的细节级别
   param.mutable_state()->set_level(level);
+  // 使用读取并设置好的网络参数初始化网络
   Init(param);
 }
 
 template <typename Dtype>
 void Net<Dtype>::Init(const NetParameter& in_param) {
-  // Set phase from the state.
+  // Set phase from the state. 设置当前阶段
   phase_ = in_param.state().phase();
   // Filter layers based on their include/exclude rules and
   // the current NetState.
   NetParameter filtered_param;
+  // 根据 include/exclude 规则和网络当前状态过滤网络层
   FilterNet(in_param, &filtered_param);
   LOG_IF(INFO, Caffe::root_solver())
       << "Initializing net from parameters: " << std::endl
       << filtered_param.DebugString();
   // Create a copy of filtered_param with splits added where necessary.
+  // 创建 filtered_param 的副本，并在必要时添加拆分
   NetParameter param;
+  // 有两个输出blob，分割
   InsertSplits(filtered_param, &param);
   // Basically, build all the layers and set up their connections.
-  name_ = param.name();
-  map<string, int> blob_name_to_idx;
-  set<string> available_blobs;
-  memory_used_ = 0;
+  // 创建所有层，并连接起来
+  name_ = param.name(); // 初始化网络的名称
+
+  map<string, int> blob_name_to_idx; // 创建用于记录 Blob 名称和索引的映射
+  set<string> available_blobs;       // 创建用于记录可用 Blob 的集合
+  memory_used_ = 0;                  // 初始化已用内存大小
   // For each layer, set up its input and output
   bottom_vecs_.resize(param.layer_size());
   top_vecs_.resize(param.layer_size());
@@ -73,7 +84,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
     if (!param.layer(layer_id).has_phase()) {
       param.mutable_layer(layer_id)->set_phase(phase_);
     }
-    // Setup layer.
+    // Setup layer. 设置层
     const LayerParameter& layer_param = param.layer(layer_id);
     if (layer_param.propagate_down_size() > 0) {
       CHECK_EQ(layer_param.propagate_down_size(),
@@ -81,15 +92,17 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
           << "propagate_down param must be specified "
           << "either 0 or bottom_size times ";
     }
+    // 创建层并添加到网络中
     layers_.push_back(LayerRegistry<Dtype>::CreateLayer(layer_param));
     layer_names_.push_back(layer_param.name());
     LOG_IF(INFO, Caffe::root_solver())
         << "Creating Layer " << layer_param.name();
     bool need_backward = false;
 
-    // Figure out this layer's input and output
+    // Figure out this layer's input and output 确定层的输入和输出
     for (int bottom_id = 0; bottom_id < layer_param.bottom_size();
          ++bottom_id) {
+      // 添加 输入 blob 并检查是否需要反向传播
       const int blob_id = AppendBottom(param, layer_id, bottom_id,
                                        &available_blobs, &blob_name_to_idx);
       // If a blob needs backward, this layer should provide it.
@@ -260,27 +273,36 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
 template <typename Dtype>
 void Net<Dtype>::FilterNet(const NetParameter& param,
     NetParameter* param_filtered) {
+  // 从传入的网络参数中获取网络状态
   NetState net_state(param.state());
+  // 将传入的网络参数复制到param_filtered中，param_filtered将包含筛选后的网络参数
   param_filtered->CopyFrom(param);
+  // 清除 param_filtered 中的所有层，因为我们将会重新添加经过筛选的层
   param_filtered->clear_layer();
   for (int i = 0; i < param.layer_size(); ++i) {
+    // 获取当前层的参数
     const LayerParameter& layer_param = param.layer(i);
+    // 获取当前层的名称
     const string& layer_name = layer_param.name();
+    // 检查每个层是否只指定 include 或 exclude 中的一个，不能同时指定两者
     CHECK(layer_param.include_size() == 0 || layer_param.exclude_size() == 0)
           << "Specify either include rules or exclude rules; not both.";
     // If no include rules are specified, the layer is included by default and
     // only excluded if it meets one of the exclude rules.
+    // 如果没有指定include，则默认包含该层，只有当满足 exclue 规则时才 exclude
     bool layer_included = (layer_param.include_size() == 0);
     for (int j = 0; layer_included && j < layer_param.exclude_size(); ++j) {
       if (StateMeetsRule(net_state, layer_param.exclude(j), layer_name)) {
         layer_included = false;
       }
     }
+    // 遍历所有 include 规则，如果当前层满足任何一个 include 规则，则设置为包含
     for (int j = 0; !layer_included && j < layer_param.include_size(); ++j) {
       if (StateMeetsRule(net_state, layer_param.include(j), layer_name)) {
         layer_included = true;
       }
     }
+    // 如果当前层被 include，则将其添加到筛选后的网络参数中
     if (layer_included) {
       param_filtered->add_layer()->CopyFrom(layer_param);
     }

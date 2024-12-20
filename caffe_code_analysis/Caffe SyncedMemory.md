@@ -204,58 +204,58 @@ void to_gpu();             // 将数据从 CPU 复制到 GPU
 ### 2.5     其他函数
 
 ```c++
-  // 如果CUDA可用且处于GPU模式，则将使用cudaMallocHost固定分配主机内存。
-  // 它避免了动态固定传输（DMA）。在单个GPU的情况下，性能的提高似乎可以忽略不计，
-  // 但对于并行训练来说可能更重要。最重要的是，它提高了许多GPU上大型模型的稳定性。
-  /**
+// 如果CUDA可用且处于GPU模式，则将使用cudaMallocHost固定分配主机内存。
+// 它避免了动态固定传输（DMA）。在单个GPU的情况下，性能的提高似乎可以忽略不计，
+// 但对于并行训练来说可能更重要。最重要的是，它提高了许多GPU上大型模型的稳定性。
+/**
    * @brief 在主机内存上分配空间，并根据情况设置use_cuda的值
    * @param ptr        指向指针的指针
    * @param size       内存大小
    * @param use_cuda   是否使用GPU
    */
-  inline void CaffeMallocHost(void **ptr, size_t size, bool *use_cuda)
-  {
-#ifndef CPU_ONLY
+inline void CaffeMallocHost(void **ptr, size_t size, bool *use_cuda)
+{
+    #ifndef CPU_ONLY
     if (Caffe::mode() == Caffe::GPU)
     {
-      /* 使用cudaMallocHost来分配页面锁定（pinned）内存,
+        /* 使用cudaMallocHost来分配页面锁定（pinned）内存,
         分配的内存是可供 GPU 直接访问的，提高CPU和GPU之间的内存传输速度 */
-      CUDA_CHECK(cudaMallocHost(ptr, size));
-      *use_cuda = true;
-      return;
+        CUDA_CHECK(cudaMallocHost(ptr, size));
+        *use_cuda = true;
+        return;
     }
-#endif
-#ifdef USE_MKL
+    #endif
+    #ifdef USE_MKL
     /* 使用MKL（Intel Math Kernel Library）的mkl_malloc来分配内存 */
     *ptr = mkl_malloc(size ? size : 1, 64);
-#else
+    #else
     *ptr = malloc(size);
-#endif
+    #endif
     *use_cuda = false;
     /* 使用CHECK宏来检查分配的指针是否为空，如果为空，则输出错误信息并终止程序。 */
     CHECK(*ptr) << "host allocation of size " << size << " failed";
-  }
+}
 
-  /**
+/**
    * @brief 释放主机上的内存
    * @param ptr        指向指针的指针
    * @param use_cuda   是否使用GPU
    */
-  inline void CaffeFreeHost(void *ptr, bool use_cuda)
-  {
-#ifndef CPU_ONLY
+inline void CaffeFreeHost(void *ptr, bool use_cuda)
+{
+    #ifndef CPU_ONLY
     if (use_cuda)
     {
-      CUDA_CHECK(cudaFreeHost(ptr));
-      return;
+        CUDA_CHECK(cudaFreeHost(ptr));
+        return;
     }
-#endif
-#ifdef USE_MKL
+    #endif
+    #ifdef USE_MKL
     mkl_free(ptr);
-#else
+    #else
     free(ptr);
-#endif
-  }
+    #endif
+}
 ```
 
 * **CaffeMallocHost**：申请主机CPU内存，使用cudaMallocHost或mkl_malloc加速

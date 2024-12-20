@@ -10,10 +10,12 @@
 namespace caffe {
 
 // Make sure each thread can have different values.
+// Boost库提供的智能指针，确保每个线程都有自己的独立实例
 static boost::thread_specific_ptr<Caffe> thread_instance_;
 
 Caffe& Caffe::Get() {
   if (!thread_instance_.get()) {
+    // 构造一个新的 Caffe 对象，同时将对象的指针与当前线程关联起来
     thread_instance_.reset(new Caffe());
   }
   return *(thread_instance_.get());
@@ -39,13 +41,21 @@ int64_t cluster_seedgen(void) {
   return seed;
 }
 
-
+/**
+ * @brief 全局初始化函数，用于解析命令行参数并初始化日志系统
+ * @param pargc 参数数量
+ * @param pargv 参数数组
+ */
 void GlobalInit(int* pargc, char*** pargv) {
-  // Google flags.
+  // Google flags. 解析Google flags命令行参数
+  // pargc指向参数数量，pargv指向参数数组，true表示移除已解析的标志参数
   ::gflags::ParseCommandLineFlags(pargc, pargv, true);
-  // Google logging.
+  // Google logging. 初始化Google日志系统
+  // (pargv)[0]是程序名称，用于日志消息中的标识
   ::google::InitGoogleLogging(*(pargv)[0]);
-  // Provide a backtrace on segfault.
+  // Provide a backtrace on segfault. 
+  // 在段错误（segfault）发生时提供回溯信息
+  // 安装Google的失败信号处理程序，用于捕获段错误等致命信号
   ::google::InstallFailureSignalHandler();
 }
 
@@ -147,22 +157,33 @@ void Caffe::set_random_seed(const unsigned int seed) {
   Get().random_generator_.reset(new RNG(seed));
 }
 
+/**
+ * @brief 设置 caffe 使用的GPU设备
+ * @param device_id 设备编号
+ */
 void Caffe::SetDevice(const int device_id) {
   int current_device;
+  // 调用 CUDA 函数来获取当前正在使用的设备编号
   CUDA_CHECK(cudaGetDevice(&current_device));
   if (current_device == device_id) {
     return;
   }
   // The call to cudaSetDevice must come before any calls to Get, which
   // may perform initialization using the GPU.
+  // 设置当前设备为指定的 device_id
   CUDA_CHECK(cudaSetDevice(device_id));
+  // 如果 Caffe 实例中已经存在 cuBLAS 句柄，则销毁它
   if (Get().cublas_handle_) CUBLAS_CHECK(cublasDestroy(Get().cublas_handle_));
+  // 如果 Caffe 实例中已经存在 cuRAND 生成器，则销毁它
   if (Get().curand_generator_) {
     CURAND_CHECK(curandDestroyGenerator(Get().curand_generator_));
   }
+  // 创建新的 cuBLAS 句柄
   CUBLAS_CHECK(cublasCreate(&Get().cublas_handle_));
+  // 创建新的 cuRAND 生成器
   CURAND_CHECK(curandCreateGenerator(&Get().curand_generator_,
       CURAND_RNG_PSEUDO_DEFAULT));
+  // 设置 cuRAND 生成器的种子，种子由 cluster_seedgen() 函数生成
   CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(Get().curand_generator_,
       cluster_seedgen()));
 }

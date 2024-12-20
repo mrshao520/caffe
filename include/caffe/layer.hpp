@@ -32,7 +32,7 @@ namespace caffe
    * They may also implement a Backward function, in which they compute the error
    * gradients with respect to their input Blob%s, given the error gradients with
    * their output Blob%s.
-   * 层%s必须实现Forward函数，在该函数中，它们获取输入（底部）Blob%s（如果有）并计算输出Blob%s（如有）。
+   * 层%s必须实现Forward函数，在该函数中，它们获取输入（bottom）Blob%s（如果有）并计算输出（top）Blob%s（如有）。
    * 它们还可以实现Backward函数，在该函数中，它们计算相对于其输入Blob%s的误差梯度，给定其输出Blob%s的误差梯度
    */
   template <typename Dtype>
@@ -54,7 +54,7 @@ namespace caffe
         blobs_.resize(layer_param_.blobs_size());
         for (int i = 0; i < layer_param_.blobs_size(); ++i)
         {
-          blobs_[i].reset(new Blob<Dtype>()); ///< 创建一个新的Blob对象
+          blobs_[i].reset(new Blob<Dtype>());          ///< 创建一个新的Blob对象
           blobs_[i]->FromProto(layer_param_.blobs(i)); ///< 从protobuf消息中读取数据并初始化Blob
         }
       }
@@ -64,9 +64,9 @@ namespace caffe
     /**
      * @brief Implements common layer setup functionality.
      *
-     * @param bottom the preshaped input blobs
+     * @param bottom the preshaped input blobs 输入数据,输入形状固定
      * @param top
-     *     the allocated but unshaped output blobs, to be shaped by Reshape
+     *     the allocated but unshaped output blobs, to be shaped by Reshape 输出数据，形状未固定
      *
      * Checks that the number of bottom and top blobs is correct.
      * Calls LayerSetUp to do special layer setup for individual layer types,
@@ -95,6 +95,7 @@ namespace caffe
     /**
      * @brief Does layer-specific setup: your layer should implement this function
      *        as well as Reshape.
+     *        进行特定层的设置：您的层应该实现此功能。
      *
      * @param bottom
      *     the preshaped input blobs, whose data fields store the input data for
@@ -107,6 +108,9 @@ namespace caffe
      * Setting up the shapes of top blobs and internal buffers should be done in
      * <code>Reshape</code>, which will be called before the forward pass to
      * adjust the top blob sizes.
+     * 此方法应进行一次性特定于层的设置。这包括从<code>layer_param_</code>读取和处理相关参数。
+     * 设置top blob和内部缓冲区的形状应在<code>Reshape</code>中完成，
+     * 该函数将在正向传递之前调用以调整top blob的大小。
      */
     virtual void LayerSetUp(const vector<Blob<Dtype> *> &bottom,
                             const vector<Blob<Dtype> *> &top) {}
@@ -114,6 +118,7 @@ namespace caffe
     /**
      * @brief Adjust the shapes of top blobs and internal buffers to accommodate
      *        the shapes of the bottom blobs.
+     *        调整top blobs和内部缓冲区的形状，以适应bottom blobs的形状。
      *
      * @param bottom the input blobs, with the requested input shapes
      * @param top the top blobs, which should be reshaped as needed
@@ -128,6 +133,7 @@ namespace caffe
 
     /**
      * @brief Given the bottom blobs, compute the top blobs and the loss.
+     *        前向传播
      *
      * @param bottom
      *     the input blobs, whose data fields store the input data for this layer
@@ -140,6 +146,9 @@ namespace caffe
      * (Forward_cpu or Forward_gpu) to compute the top blob values given the
      * bottom blobs.  If the layer has any non-zero loss_weights, the wrapper
      * then computes and returns the loss.
+     * Forward包装器调用相关的设备包装器函数（Forward_cpu或Forward_gpu）
+     * 来计算给定bottom blob的top blob值。
+     * 如果该层有任何非零的loss_weights，则包装器会计算并返回损失。
      *
      * Your layer should implement Forward_cpu and (optionally) Forward_gpu.
      */
@@ -149,6 +158,7 @@ namespace caffe
     /**
      * @brief Given the top blob error gradients, compute the bottom blob error
      *        gradients.
+     *        反向传播
      *
      * @param top
      *     the output blobs, whose diff fields store the gradient of the error
@@ -157,6 +167,7 @@ namespace caffe
      *     a vector with equal length to bottom, with each index indicating
      *     whether to propagate the error gradients down to the bottom blob at
      *     the corresponding index
+     *     与bottom blob相等的向量，每个索引指示是否将误差梯度向下传播到相应索引处的bottom blob
      * @param bottom
      *     the input blobs, whose diff fields will store the gradient of the error
      *     with respect to themselves after Backward is run
@@ -164,6 +175,8 @@ namespace caffe
      * The Backward wrapper calls the relevant device wrapper function
      * (Backward_cpu or Backward_gpu) to compute the bottom blob diffs given the
      * top blob diffs.
+     * Backward包装器调用相关的设备包装器函数（Backward_cpu或Backward_gpu）
+     * 来计算给定top blob diffs 的bottom blob diffs。
      *
      * Your layer should implement Backward_cpu and (optionally) Backward_gpu.
      */
@@ -173,24 +186,28 @@ namespace caffe
 
     /**
      * @brief Returns the vector of learnable parameter blobs.
+     *        返回可学习参数的blobs
      */
-    vector<shared_ptr<Blob<Dtype>>> &blobs()
+    vector<shared_ptr<Blob<Dtype> > > &blobs()
     {
       return blobs_;
     }
 
     /**
      * @brief Returns the layer parameter.
+     *        返回层的参数
      */
     const LayerParameter &layer_param() const { return layer_param_; }
 
     /**
      * @brief Writes the layer parameter to a protocol buffer
+     *        将层的参数写入protocol buffer里
      */
     virtual void ToProto(LayerParameter *param, bool write_diff = false);
 
     /**
      * @brief Returns the scalar loss associated with a top blob at a given index.
+     *        返回与给定索引处 top blob 相关的损失。
      */
     inline Dtype loss(const int top_index) const
     {
@@ -199,6 +216,7 @@ namespace caffe
 
     /**
      * @brief Sets the loss associated with a top blob at a given index.
+     *        设置与给定索引处的 top blob 相关的损失。
      */
     inline void set_loss(const int top_index, const Dtype value)
     {
@@ -217,6 +235,7 @@ namespace caffe
     /**
      * @brief Returns the exact number of bottom blobs required by the layer,
      *        or -1 if no exact number is required.
+     *        返回层所需的输入blob的确切数量，如果不需要确切数量，则返回-1。
      *
      * This method should be overridden to return a non-negative value if your
      * layer expects some exact number of bottom blobs.
@@ -225,6 +244,7 @@ namespace caffe
     /**
      * @brief Returns the minimum number of bottom blobs required by the layer,
      *        or -1 if no minimum number is required.
+     *        返回图层所需的最小输入 blobs 数量，如果不需要最小数量，则返回-1。
      *
      * This method should be overridden to return a non-negative value if your
      * layer expects some minimum number of bottom blobs.
@@ -233,6 +253,7 @@ namespace caffe
     /**
      * @brief Returns the maximum number of bottom blobs required by the layer,
      *        or -1 if no maximum number is required.
+     *        返回图层所需的最大输入 blobs 数量，如果不需要最大数量，则返回-1。
      *
      * This method should be overridden to return a non-negative value if your
      * layer expects some maximum number of bottom blobs.
@@ -241,6 +262,7 @@ namespace caffe
     /**
      * @brief Returns the exact number of top blobs required by the layer,
      *        or -1 if no exact number is required.
+     *        返回层所需的输出blob的确切数量，如果不需要确切数量，则返回-1。
      *
      * This method should be overridden to return a non-negative value if your
      * layer expects some exact number of top blobs.
@@ -249,6 +271,7 @@ namespace caffe
     /**
      * @brief Returns the minimum number of top blobs required by the layer,
      *        or -1 if no minimum number is required.
+     *        返回图层所需的最小输出 blobs 数量，如果不需要最小数量，则返回-1。
      *
      * This method should be overridden to return a non-negative value if your
      * layer expects some minimum number of top blobs.
@@ -257,6 +280,7 @@ namespace caffe
     /**
      * @brief Returns the maximum number of top blobs required by the layer,
      *        or -1 if no maximum number is required.
+     *        返回图层所需的最大输出 blobs 数量，如果不需要最小数量，则返回-1。
      *
      * This method should be overridden to return a non-negative value if your
      * layer expects some maximum number of top blobs.
@@ -265,6 +289,7 @@ namespace caffe
     /**
      * @brief Returns true if the layer requires an equal number of bottom and
      *        top blobs.
+     *        如果该层有相等数量的输入和输出，则返回true
      *
      * This method should be overridden to return true if your layer expects an
      * equal number of bottom and top blobs.
@@ -297,6 +322,7 @@ namespace caffe
     /**
      * @brief Specifies whether the layer should compute gradients w.r.t. a
      *        parameter at a particular index given by param_id.
+     *        指定层是否应计算参数在param_id给定的特定索引处的梯度
      *
      * You can safely ignore false values and always compute gradients
      * for all parameters, but possibly with wasteful computation.
@@ -308,6 +334,7 @@ namespace caffe
     /**
      * @brief Sets whether the layer should compute gradients w.r.t. a
      *        parameter at a particular index given by param_id.
+     *        设置层是否应计算参数在param_id给定的特定索引处的梯度
      */
     inline void set_param_propagate_down(const int param_id, const bool value)
     {
@@ -319,31 +346,30 @@ namespace caffe
     }
 
   protected:
-    /** The protobuf that stores the layer parameters 
+    /** The protobuf that stores the layer parameters
      * 这是一个用于存储层参数的对象。在Protobuf（Google的一种数据交换格式）
      * 中定义了层的各种参数，如卷积层的卷积核大小、步长等。
-    */
-    LayerParameter layer_param_; 
-    /** The phase: TRAIN or TEST 
+     */
+    LayerParameter layer_param_;
+    /** The phase: TRAIN or TEST
      * 这个成员变量用于指示当前是训练阶段（TRAIN）还是测试阶段（TEST）。
      * 在训练和测试阶段，某些层的操作可能会有所不同，
      * 例如，dropout层在训练时会随机丢弃一些神经元，而在测试时则不会。
-    */
+     */
     Phase phase_;
-    /** The vector that stores the learnable parameters as a set of blobs. 
+    /** The vector that stores the learnable parameters as a set of blobs.
      * 这是一个存储可学习参数的向量，每个参数都是一个Blob智能指针。
-     * Blob是Caffe（一个流行的深度学习框架）中用于存储数据的多维数组，
-     * Dtype通常是指数据类型，如float或double。
-    */
-    vector<shared_ptr<Blob<Dtype>>> blobs_;
-    /** Vector indicating whether to compute the diff of each param blob. 
+     * Blob是Caffe中用于存储数据的多维数组， Dtype通常是指数据类型，如float或double。
+     */
+    vector<shared_ptr<Blob<Dtype> > > blobs_;
+    /** Vector indicating whether to compute the diff of each param blob.
      * 这个向量指示是否需要计算每个参数blob的梯度（diff）。
      * 在反向传播过程中，这个向量用于决定哪些参数需要更新。
-    */
+     */
     vector<bool> param_propagate_down_;
 
     /** The vector that indicates whether each top blob has a non-zero weight in
-     *  the objective function. 
+     *  the objective function.
      * 这个向量表示每个顶部blob（top blob）在目标函数中是否有非零权重。
      * 在训练过程中，每个blob的损失贡献可能不同，这个向量用于记录这些贡献。
      */
@@ -438,6 +464,7 @@ namespace caffe
     /**
      * Called by SetUp to initialize the weights associated with any top blobs in
      * the loss function. Store non-zero loss weights in the diff blob.
+     * 由SetUp调用，以初始化与损失函数中任何输出blob关联的权重。将非零损失权重存储在diff blob中。
      */
     inline void SetLossWeights(const vector<Blob<Dtype> *> &top)
     {
@@ -474,22 +501,25 @@ namespace caffe
   inline Dtype Layer<Dtype>::Forward(const vector<Blob<Dtype> *> &bottom,
                                      const vector<Blob<Dtype> *> &top)
   {
-    Dtype loss = 0;
-    Reshape(bottom, top);
+    Dtype loss = 0;  /// 初始化损失值为 0
+    Reshape(bottom, top); /// 根据输入和输出挑战层的大小
     switch (Caffe::mode())
     {
     case Caffe::CPU:
+      // 调用CPU特定的前向传播函数 
       Forward_cpu(bottom, top);
+      // 计算损失值
       for (int top_id = 0; top_id < top.size(); ++top_id)
       {
+        // 如果当前输出不需要计算损失
         if (!this->loss(top_id))
         {
           continue;
         }
-        const int count = top[top_id]->count();
-        const Dtype *data = top[top_id]->cpu_data();
-        const Dtype *loss_weights = top[top_id]->cpu_diff();
-        loss += caffe_cpu_dot(count, data, loss_weights);
+        const int count = top[top_id]->count(); // 获取 Blob 中元素的数量
+        const Dtype *data = top[top_id]->cpu_data(); // 获取 Blob 的数据指针
+        const Dtype *loss_weights = top[top_id]->cpu_diff(); // 获取 Blob 的损失权重指针
+        loss += caffe_cpu_dot(count, data, loss_weights); // 计算并累加损失
       }
       break;
     case Caffe::GPU:
@@ -501,19 +531,19 @@ namespace caffe
         {
           continue;
         }
-        const int count = top[top_id]->count();
-        const Dtype *data = top[top_id]->gpu_data();
-        const Dtype *loss_weights = top[top_id]->gpu_diff();
-        Dtype blob_loss = 0;
-        caffe_gpu_dot(count, data, loss_weights, &blob_loss);
-        loss += blob_loss;
+        const int count = top[top_id]->count();// 获取 Blob 中元素的数量
+        const Dtype *data = top[top_id]->gpu_data();// 获取 Blob 的数据指针
+        const Dtype *loss_weights = top[top_id]->gpu_diff();// 获取 Blob 的损失权重指针
+        Dtype blob_loss = 0; // 初始化 Blob 的损失值为 0
+        caffe_gpu_dot(count, data, loss_weights, &blob_loss); // 在 GPU 上计算点积
+        loss += blob_loss; // 累加到总损失中
       }
 #endif
       break;
     default:
       LOG(FATAL) << "Unknown caffe mode.";
     }
-    return loss;
+    return loss; // 返回计算得到的损失值
   }
 
   template <typename Dtype>
@@ -534,7 +564,7 @@ namespace caffe
     }
   }
 
-  // Serialize LayerParameter to protocol buffer
+  // Serialize LayerParameter to protocol buffer 将参数信息序列化到protocol buffer
   template <typename Dtype>
   void Layer<Dtype>::ToProto(LayerParameter *param, bool write_diff)
   {

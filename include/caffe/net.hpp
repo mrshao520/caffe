@@ -17,13 +17,23 @@ namespace caffe {
 /**
  * @brief Connects Layer%s together into a directed acyclic graph (DAG)
  *        specified by a NetParameter.
+ *        将层%s连接在一起，形成由NetParameter指定的有向无环图（DAG
  *
  * TODO(dox): more thorough description.
  */
 template <typename Dtype>
 class Net {
  public:
+  /**
+   * @brief 使用网络参数来显式构造一个网络对象
+   */
   explicit Net(const NetParameter& param);
+  /**
+   * @brief 使用网络参数文件来显式构造一个网络对象
+   * @param param_file 包含网络参数的文件路径
+   * @param phase 网络的运行阶段，TRAIN or TEST
+   * @param level 网络参数的细节级别
+   */
   explicit Net(const string& param_file, Phase phase,
       const int level = 0, const vector<string>* stages = NULL);
   virtual ~Net() {}

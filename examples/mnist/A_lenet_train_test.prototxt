@@ -1,0 +1,169 @@
+name: "LeNet"  # 网络名
+layer {
+  name: "mnist" # 此层的名称
+  type: "Data"  # 数据层
+  top: "data"
+  top: "label"
+  include {
+    phase: TRAIN # 训练集
+  }
+  transform_param {    # 使其在[0, 1]范围内
+    scale: 0.00390625  # 1 / 256
+  }
+  data_param {
+    source: "examples/mnist/mnist_train_lmdb"
+    batch_size: 64
+    backend: LMDB
+  }
+}
+layer {
+  name: "mnist"
+  type: "Data"
+  top: "data"
+  top: "label"
+  include {
+    phase: TEST # 测试集
+    # 此层仅包含在 TEST 阶段，默认情况下，即没有图层规则，图层始终包含在网络中
+  }
+  transform_param {
+    scale: 0.00390625
+  }
+  data_param {
+    source: "examples/mnist/mnist_test_lmdb"
+    batch_size: 100
+    backend: LMDB
+  }
+}
+layer {
+  name: "conv1"
+  type: "Convolution"
+  bottom: "data"
+  top: "conv1"
+  param {
+    lr_mult: 1 # 层可学习参数的学习率调整，将权重学习率设置为与求解器在运行时给出的学习率相同，并将偏差学习率设置为两倍
+  }
+  param {
+    lr_mult: 2
+  }
+  convolution_param {
+    num_output: 20 # 输出通道数
+    kernel_size: 5 # 卷积核大小
+    stride: 1      # 步长
+    weight_filler {  # 参数初始化
+      type: "xavier" # 使用 xavier 算法，根据输入和输出神经元数量自动确定初始化规模
+    }
+    bias_filler {
+      type: "constant" # 默认填充值为 0
+    }
+  }
+}
+layer {
+  name: "pool1"
+  type: "Pooling"
+  bottom: "conv1"
+  top: "pool1"
+  pooling_param {
+    pool: MAX
+    kernel_size: 2
+    stride: 2
+  }
+}
+layer {
+  name: "conv2"
+  type: "Convolution"
+  bottom: "pool1"
+  top: "conv2"
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  convolution_param {
+    num_output: 50
+    kernel_size: 5
+    stride: 1
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+layer {
+  name: "pool2"
+  type: "Pooling"
+  bottom: "conv2"
+  top: "pool2"
+  pooling_param {
+    pool: MAX
+    kernel_size: 2
+    stride: 2
+  }
+}
+layer {
+  name: "ip1"
+  type: "InnerProduct" # 全连接层
+  bottom: "pool2"
+  top: "ip1"
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  inner_product_param {
+    num_output: 500
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+layer {
+  name: "relu1"
+  type: "ReLU" # ReLU 是元素级操作，因此可以进行就地操作以节省内存
+  bottom: "ip1" # 只需为底部和顶部blob指定相同的名称即可实现。
+  top: "ip1"
+}
+layer {
+  name: "ip2"
+  type: "InnerProduct"
+  bottom: "ip1"
+  top: "ip2"
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  inner_product_param {
+    num_output: 10
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+layer {
+  name: "accuracy"
+  type: "Accuracy"
+  bottom: "ip2"
+  bottom: "label"
+  top: "accuracy"
+  include {
+    phase: TEST
+  }
+}
+layer {
+  name: "loss"
+  type: "SoftmaxWithLoss" # softmax_loss 层同时实现 softmax 和 multinomial logistic loss 节省时间并提高数值稳定性
+  bottom: "ip2"   
+  bottom: "label"
+  top: "loss"
+}

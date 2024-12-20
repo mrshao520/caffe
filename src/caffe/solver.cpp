@@ -44,32 +44,43 @@ template <typename Dtype>
 void Solver<Dtype>::Init(const SolverParameter& param) {
   LOG_IF(INFO, Caffe::root_solver()) << "Initializing solver from parameters: "
     << std::endl << param.DebugString();
+  // 保存传入的参数
   param_ = param;
   CHECK_GE(param_.average_loss(), 1) << "average_loss should be non-negative.";
+  // 检查快照写权限
   CheckSnapshotWritePermissions();
+  // 如果 random_seed 参数大于或等于0，则设置随机种子
   if (param_.random_seed() >= 0) {
     Caffe::set_random_seed(param_.random_seed() + Caffe::solver_rank());
   }
   // Scaffolding code
+  // 初始化训练网络
   InitTrainNet();
+  // 初始化测试网络
   InitTestNets();
   if (Caffe::root_solver()) {
     LOG(INFO) << "Solver scaffolding done.";
   }
+  // 初始化迭代计数器
   iter_ = 0;
+  // 初始化当前步骤计数器
   current_step_ = 0;
 }
 
 // Load weights from the caffemodel(s) specified in "weights" solver parameter
 // into the train and test nets.
+// 从 "weight" solver 参数中指定 caffe model 加载权重到训练和测试网络
 template <typename Dtype>
 void LoadNetWeights(shared_ptr<Net<Dtype> > net,
     const std::string& model_list) {
   std::vector<std::string> model_names;
   boost::split(model_names, model_list, boost::is_any_of(","));
+  // 遍历模型名称向量
   for (int i = 0; i < model_names.size(); ++i) {
+    // 去除模型名称的左右空格
     boost::trim(model_names[i]);
     LOG(INFO) << "Finetuning from " << model_names[i];
+    // 将模型的权重复制到网络中
     net->CopyTrainedLayersFrom(model_names[i]);
   }
 }
@@ -199,20 +210,22 @@ void Solver<Dtype>::InitTestNets() {
 
 template <typename Dtype>
 void Solver<Dtype>::Step(int iters) {
-  const int start_iter = iter_;
-  const int stop_iter = iter_ + iters;
-  int average_loss = this->param_.average_loss();
-  losses_.clear();
-  smoothed_loss_ = 0;
-  iteration_timer_.Start();
+  const int start_iter = iter_;  // 记录开始迭代的次数
+  const int stop_iter = iter_ + iters; // 计算停止迭代的次数
+  int average_loss = this->param_.average_loss(); // 获取用于计算平均损失的迭代次数
+  losses_.clear(); // 清空损失值
+  smoothed_loss_ = 0; // 初始化平滑损失值为 0
+  iteration_timer_.Start(); // 开始计时
 
+  // 主循环，执行迭代
   while (iter_ < stop_iter) {
-    // zero-init the params
+    // zero-init the params 将网络参数的梯度清零
     net_->ClearParamDiffs();
+    // 判断是否需要测试
     if (param_.test_interval() && iter_ % param_.test_interval() == 0
         && (iter_ > 0 || param_.test_initialization())) {
       if (Caffe::root_solver()) {
-        TestAll();
+        TestAll(); // 执行所有测试
       }
       if (requested_early_exit_) {
         // Break out of the while loop because stop was requested while testing.
@@ -223,19 +236,25 @@ void Solver<Dtype>::Step(int iters) {
     for (int i = 0; i < callbacks_.size(); ++i) {
       callbacks_[i]->on_start();
     }
+    // 判断是否需要显示信息
     const bool display = param_.display() && iter_ % param_.display() == 0;
+    // 设置网络是否记录调试信息
     net_->set_debug_info(display && param_.debug_info());
-    // accumulate the loss and gradient
+    // accumulate the loss and gradient 累加损失值喝梯度
     Dtype loss = 0;
     for (int i = 0; i < param_.iter_size(); ++i) {
       loss += net_->ForwardBackward();
     }
+    // 计算平均损失
     loss /= param_.iter_size();
     // average the loss across iterations for smoothed reporting
+    // 更新平滑损失值
     UpdateSmoothedLoss(loss, start_iter, average_loss);
     if (display) {
+      // 计算耗时和迭代次数
       float lapse = iteration_timer_.Seconds();
       float per_s = (iter_ - iterations_last_) / (lapse ? lapse : 1);
+      // 打印迭代信息
       LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
           << " (" << per_s << " iter/s, " << lapse << "s/"
           << param_.display() << " iters), loss = " << smoothed_loss_;
@@ -268,7 +287,7 @@ void Solver<Dtype>::Step(int iters) {
 
     SolverAction::Enum request = GetRequestedAction();
 
-    // Save a snapshot if needed.
+    // Save a snapshot if needed. 保存快照
     if ((param_.snapshot()
          && iter_ % param_.snapshot() == 0
          && Caffe::root_solver()) ||
@@ -300,11 +319,13 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   // For a network that is trained by the solver, no bottom or top vecs
   // should be given, and we will just provide dummy vecs.
   int start_iter = iter_;
+  // 训练的主循环
   Step(param_.max_iter() - iter_);
   // If we haven't already, save a snapshot after optimization, unless
   // overridden by setting snapshot_after_train := false
   if (param_.snapshot_after_train()
       && (!param_.snapshot() || iter_ % param_.snapshot() != 0)) {
+    // 保存
     Snapshot();
   }
   if (requested_early_exit_) {
